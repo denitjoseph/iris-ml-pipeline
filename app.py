@@ -5,8 +5,8 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
-# Fetch latest model directly from MLflow Model Registry
-MODEL_URI = "models:/IrisRandomForest/latest"
+# Load model directly from local mlruns artifact path (works inside Docker)
+MODEL_URI = "mlruns/1/models/m-22e4422a43c24d4f8a93a6d8f6cb433e/artifacts"
 model = mlflow.sklearn.load_model(MODEL_URI)
 
 class IrisInput(BaseModel):
