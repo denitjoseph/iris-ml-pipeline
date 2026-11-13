@@ -1,15 +1,19 @@
 # 🌸 Iris ML Pipeline — End-to-End MLOps with MLflow & FastAPI
 
-A production-style ML pipeline that trains a Random Forest classifier on the Iris dataset, tracks experiments with **MLflow**, registers the model in the **MLflow Model Registry**, and serves predictions via a **FastAPI** REST API.
+A production-style ML pipeline that trains a Random Forest classifier on the Iris dataset, tracks experiments with **MLflow**, registers the model in the **MLflow Model Registry**, and serves predictions via a **FastAPI** REST API — containerised with **Docker**.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-├── train.py       # Train, log, and register the model with MLflow
-├── app.py         # FastAPI inference server
-├── mlruns/        # MLflow tracking data (auto-generated)
+├── train.py          # Train, log, and register the model with MLflow
+├── app.py            # FastAPI inference server
+├── monitor.py        # Inspect registered model version info via MLflow
+├── Dockerfile        # Container definition for the inference API
+├── requirements.txt  # Pinned Python dependencies
+├── mlruns/           # MLflow tracking data (auto-generated)
+├── mlflow.db         # MLflow SQLite model registry (auto-generated)
 └── README.md
 ```
 
@@ -20,7 +24,7 @@ A production-style ML pipeline that trains a Random Forest classifier on the Iri
 Install dependencies via pip:
 
 ```bash
-pip install fastapi uvicorn mlflow scikit-learn pandas pydantic
+pip install -r requirements.txt
 ```
 
 ---
@@ -58,11 +62,24 @@ Open [http://127.0.0.1:5000](http://127.0.0.1:5000) to explore runs, metrics, an
 
 ### Step 3 — Start the Inference Server
 
+**Option A — Run locally:**
 ```bash
 uvicorn app:app --reload --port 8000
 ```
 
-The API will be available at [http://127.0.0.1:8000](http://127.0.0.1:8000).
+**Option B — Run with Docker:**
+```bash
+# Build the image
+docker build -t iris-api .
+
+# Run the container
+docker run -d --name iris-api -p 8000:8000 iris-api
+
+# Check logs
+docker logs iris-api
+```
+
+The API will be available at [http://localhost:8000](http://localhost:8000).
 
 ---
 
@@ -114,6 +131,25 @@ Accepts Iris flower measurements and returns the predicted class.
 
 ---
 
+## 🔍 Monitor the Registered Model
+
+Use `monitor.py` to inspect the latest registered model version info from MLflow:
+
+```bash
+python monitor.py
+```
+
+**Expected output:**
+```
+Model Name: IrisRandomForest
+Model Version: 1
+Source Run ID: <run_id>
+Artifact URI: <artifact_path>
+Model Status: READY
+```
+
+---
+
 ## 🧠 Model Details
 
 | Parameter      | Value               |
@@ -135,4 +171,6 @@ Accepts Iris flower measurements and returns the predicted class.
 | `UntrustedTypesFoundException` | Add `skops_trusted_types=["sklearn.tree._tree.Tree"]` to `log_model()` |
 | `models:/IrisRandomForest/latest` not found | Use a version alias like `/1` or `@champion` in newer MLflow versions |
 | PowerShell `curl` syntax error | Use `Invoke-WebRequest` instead — PowerShell's `curl` is not the same as bash `curl` |
+| Docker: `Registered Model not found` | Ensure `mlflow.db` is copied into the image and `MLFLOW_TRACKING_URI=sqlite:///mlflow.db` is set |
+| Docker: `No such artifact` | Model artifact path is absolute (Windows path); load directly from `mlruns/` folder instead of registry URI |
 
