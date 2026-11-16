@@ -1,27 +1,29 @@
-# 🌸 Iris ML Pipeline — End-to-End MLOps with MLflow & FastAPI
+# 🌸 Iris ML Pipeline — End-to-End MLOps with MLflow, FastAPI & Evidently AI
 
-A production-style ML pipeline that trains a Random Forest classifier on the Iris dataset, tracks experiments with **MLflow**, registers the model in the **MLflow Model Registry**, and serves predictions via a **FastAPI** REST API — containerised with **Docker**.
+A production-grade ML pipeline that trains a Random Forest classifier on the Iris dataset, tracks experiments and registers versions using **MLflow**, serves predictions via a **FastAPI** REST API (containerized with **Docker**), and implements **Phase 2: Continuous Training & Data Drift Monitoring** using **Evidently AI**.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-├── train.py          # Train, log, and register the model with MLflow
-├── app.py            # FastAPI inference server
-├── monitor.py        # Inspect registered model version info via MLflow
-├── Dockerfile        # Container definition for the inference API
-├── requirements.txt  # Pinned Python dependencies
-├── mlruns/           # MLflow tracking data (auto-generated)
-├── mlflow.db         # MLflow SQLite model registry (auto-generated)
+├── mlruns/                  # MLflow tracking data directory
+├── src/
+│   ├── monitor_drift.py     # Evidently AI data drift detection script
+│   └── retrain_pipeline.py  # Automated retraining trigger on drift
+├── app.py                   # FastAPI prediction server
+├── train.py                 # Initial model training & MLflow logging
+├── Dockerfile               # Container build configuration
+├── requirements.txt         # Project dependencies manifest
+├── drift_report.html        # Generated visual drift dashboard
 └── README.md
 ```
 
 ---
 
-## ⚙️ Requirements
+## ⚙️ Requirements & Installation
 
-Install dependencies via pip:
+Activate your virtual environment and install dependencies:
 
 ```bash
 pip install -r requirements.txt
@@ -31,72 +33,90 @@ pip install -r requirements.txt
 
 ## 🚀 Quick Start
 
-### Step 1 — Train & Register the Model
+### Step 1 — Initial Model Training & Registry
 
 ```bash
 python train.py
 ```
 
 This will:
-- Train a `RandomForestClassifier` on the Iris dataset
-- Log parameters (`n_estimators`, `max_depth`) and metrics (`accuracy`) to MLflow
-- Register the model as **`IrisRandomForest`** in the MLflow Model Registry
+- Train a `RandomForestClassifier` on the Iris dataset.
+- Log parameters and evaluation metrics to MLflow.
+- Register the model under **`IrisRandomForest`** in the MLflow Model Registry.
 
-**Expected output:**
+---
+
+### Step 2 — Phase 2: Data Drift Monitoring & Automated Retraining
+
+Run the automated drift-detection and retraining pipeline:
+
+```bash
+python src/retrain_pipeline.py
 ```
-Model logged with Run ID: <run_id>
-Test Accuracy: 1.0000
+
+What this does:
+1. **Drift Detection (`src/monitor_drift.py`):** Uses Evidently AI to compare reference training data against current production samples.
+2. **Visual Dashboard:** Generates `drift_report.html` in the root folder.
+3. **Automated Retraining:** If data drift is detected, it automatically retrains the model with updated parameters, logs the new experiment run, and registers the new version in the MLflow Model Registry.
+
+To view the generated visual drift report in your browser:
+
+```powershell
+# Windows
+start drift_report.html
+
+# macOS / Linux
+open drift_report.html
 ```
 
 ---
 
-### Step 2 — Launch the MLflow UI *(optional)*
+### Step 3 — Launch the MLflow UI *(Optional)*
 
 ```bash
 mlflow ui
 ```
 
-Open [http://127.0.0.1:5000](http://127.0.0.1:5000) to explore runs, metrics, and registered models.
+Open [http://127.0.0.1:5000](http://127.0.0.1:5000) to view runs, parameters, metrics, and registered model versions.
 
 ---
 
-### Step 3 — Start the Inference Server
+### Step 4 — Run the Inference Server
 
-**Option A — Run locally:**
+**Option A — Run locally with Uvicorn:**
 ```bash
 uvicorn app:app --reload --port 8000
 ```
 
 **Option B — Run with Docker:**
 ```bash
-# Build the image
+# Build Docker image
 docker build -t iris-api .
 
-# Run the container
+# Run Docker container
 docker run -d --name iris-api -p 8000:8000 iris-api
 
-# Check logs
+# Check container logs
 docker logs iris-api
 ```
 
-The API will be available at [http://localhost:8000](http://localhost:8000).
+The API will be live at [http://localhost:8000](http://localhost:8000).
 
 ---
 
-### Step 4 — Send a Prediction Request
+### Step 5 — Send Prediction Requests
 
 **PowerShell:**
 ```powershell
-Invoke-WebRequest -Uri "http://127.0.0.1:8000/predict" `
+Invoke-RestMethod -Uri "http://localhost:8000/predict" `
   -Method POST `
   -ContentType "application/json" `
-  -Body '{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}' |
-  Select-Object -ExpandProperty Content
+  -Body '{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}'
 ```
 
-**Bash / Linux / macOS:**
+**cURL:**
 ```bash
-curl -X POST "http://127.0.0.1:8000/predict" \
+curl -X POST "http://localhost:8000/predict" \
      -H "Content-Type: application/json" \
      -d '{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}'
 ```
@@ -106,71 +126,14 @@ curl -X POST "http://127.0.0.1:8000/predict" \
 {"class_id": 0}
 ```
 
----
-
-## 📡 API Reference
-
-### `POST /predict`
-
-Accepts Iris flower measurements and returns the predicted class.
-
-**Request Body:**
-| Field          | Type  | Description          |
-|----------------|-------|----------------------|
-| `sepal_length` | float | Sepal length in cm   |
-| `sepal_width`  | float | Sepal width in cm    |
-| `petal_length` | float | Petal length in cm   |
-| `petal_width`  | float | Petal width in cm    |
-
-**Response:**
-| Field      | Type | Description                              |
-|------------|------|------------------------------------------|
-| `class_id` | int  | Predicted class (0 = Setosa, 1 = Versicolor, 2 = Virginica) |
-
-**Interactive Docs:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) *(Swagger UI)*
-
----
-
-## 🔍 Monitor the Registered Model
-
-Use `monitor.py` to inspect the latest registered model version info from MLflow:
-
-```bash
-python monitor.py
-```
-
-**Expected output:**
-```
-Model Name: IrisRandomForest
-Model Version: 1
-Source Run ID: <run_id>
-Artifact URI: <artifact_path>
-Model Status: READY
-```
-
----
-
-## 🧠 Model Details
-
-| Parameter      | Value               |
-|----------------|---------------------|
-| Algorithm      | Random Forest       |
-| `n_estimators` | 50                  |
-| `max_depth`    | 3                   |
-| Dataset        | Iris (sklearn)      |
-| Train/Test     | 80% / 20% split     |
-| Registry Name  | `IrisRandomForest`  |
+Interactive Swagger documentation is available at [http://localhost:8000/docs](http://localhost:8000/docs).
 
 ---
 
 ## 🛠️ Troubleshooting
 
-| Error | Fix |
-|-------|-----|
-| `WinError 10013` — port already in use | Run `netstat -ano \| findstr :8000` to find the PID, then `taskkill /PID <pid> /F` |
-| `UntrustedTypesFoundException` | Add `skops_trusted_types=["sklearn.tree._tree.Tree"]` to `log_model()` |
-| `models:/IrisRandomForest/latest` not found | Use a version alias like `/1` or `@champion` in newer MLflow versions |
-| PowerShell `curl` syntax error | Use `Invoke-WebRequest` instead — PowerShell's `curl` is not the same as bash `curl` |
-| Docker: `Registered Model not found` | Ensure `mlflow.db` is copied into the image and `MLFLOW_TRACKING_URI=sqlite:///mlflow.db` is set |
-| Docker: `No such artifact` | Model artifact path is absolute (Windows path); load directly from `mlruns/` folder instead of registry URI |
-
+| Issue | Resolution |
+|---|---|
+| `ImportError: cannot import name 'infer_dtype_from_object'` | Version clash between Pandas 2.2+/3.x and older Evidently. Fixed via compatibility layer in `src/monitor_drift.py`. |
+| Port 8000 already bound (`WinError 10013`) | Run `netstat -ano \| findstr :8000` to find the PID, then `taskkill /PID <PID> /F`. |
+| Docker registry not found | Ensure `mlflow.db` is present and copied during build, or load directly from `mlruns/` artifact folder. |
