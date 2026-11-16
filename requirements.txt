@@ -1,9 +1,17 @@
 # Iris ML Pipeline - Requirements
-# Generated: 2026-11-12
 
+# API server
 fastapi
 uvicorn
+
+# ML model & tracking
 scikit-learn
-pandas
 mlflow
+
+# Data processing & validation
+pandas
 pydantic
+
+# Drift monitoring (Phase 2)
+evidently
+requests
