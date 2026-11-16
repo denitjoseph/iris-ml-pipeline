@@ -1,19 +1,7 @@
-import sys
 import pandas as pd
-import pandas.core.dtypes.common as _pd_common
-
-# Compatibility patch for Pandas >= 2.2 / Pandas 3 with Evidently
-if not hasattr(_pd_common, "infer_dtype_from_object"):
-    _pd_common.infer_dtype_from_object = lambda x: getattr(x, "type", type(x))
-
-try:
-    from evidently.report import Report
-    from evidently.metric_preset import DataDriftPreset
-except (ImportError, ModuleNotFoundError):
-    from evidently.legacy.report import Report
-    from evidently.legacy.metric_preset import DataDriftPreset
-
 from sklearn.datasets import load_iris
+from evidently.report import Report
+from evidently.metric_preset import DataDriftPreset
 
 def check_data_drift():
     # 1. Load reference data (Iris training set)

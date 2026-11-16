@@ -1,7 +1,7 @@
 import os
 import sys
 
-# Ensure src directory is on sys.path
+# Ensure src directory is in path whether run from root or src
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import mlflow
