@@ -1,51 +1,39 @@
+import sys
 import pandas as pd
 import pandas.core.dtypes.common as _pd_common
-from scipy.stats import ks_2samp
-from sklearn.datasets import load_iris
 
 # Compatibility patch for Pandas >= 2.2 / Pandas 3 with Evidently
 if not hasattr(_pd_common, "infer_dtype_from_object"):
     _pd_common.infer_dtype_from_object = lambda x: getattr(x, "type", type(x))
 
 try:
-    from evidently.legacy.report import Report
-    from evidently.legacy.metric_preset import DataDriftPreset
+    from evidently.report import Report  # type: ignore
+    from evidently.metric_preset import DataDriftPreset  # type: ignore
 except (ImportError, ModuleNotFoundError):
-    try:
-        from evidently.report import Report
-        from evidently.metric_preset import DataDriftPreset
-    except (ImportError, ModuleNotFoundError):
-        from evidently import Report
-        from evidently.presets import DataDriftPreset
+    from evidently.legacy.report import Report  # type: ignore
+    from evidently.legacy.metric_preset import DataDriftPreset  # type: ignore
+
+from sklearn.datasets import load_iris
 
 def check_data_drift():
-    # 1. Load reference data (Iris training baseline)
+    # 1. Load reference data (Iris training set)
     iris = load_iris(as_frame=True)
     reference = iris.frame.sample(n=100, random_state=42)
 
-    # 2. Simulate current production data with artificial drift
+    # 2. Simulate current production data with shifted distributions
     current = iris.frame.sample(n=100, random_state=99)
-    current['sepal length (cm)'] = current['sepal length (cm)'] * 1.5
+    current['sepal length (cm)'] = current['sepal length (cm)'] * 1.5  # Artificial drift
 
-    # 3. Generate HTML report with Evidently
-    try:
-        report = Report(metrics=[DataDriftPreset()])
-        report.run(reference_data=reference, current_data=current)
-        report.save_html("drift_report.html")
-    except Exception as e:
-        print(f"HTML Report rendering skipped: {e}")
+    # 3. Generate Evidently Data Drift Report
+    drift_report = Report(metrics=[DataDriftPreset()])
+    drift_report.run(reference_data=reference, current_data=current)
 
-    # 4. Statistically check drift using Kolmogorov-Smirnov test (p-value < 0.05 indicates drift)
-    drifted_columns = 0
-    feature_cols = iris.feature_names
+    # 4. Save visual report and extract metric results
+    drift_report.save_html("drift_report.html")
+    report_dict = drift_report.as_dict()
 
-    for col in feature_cols:
-        p_val = ks_2samp(reference[col], current[col]).pvalue
-        if p_val < 0.05:
-            drifted_columns += 1
-
-    # Threshold: Declare dataset drift if 50%+ features drifted
-    dataset_drift = drifted_columns >= (len(feature_cols) / 2)
+    # Extract overall dataset drift flag
+    dataset_drift = report_dict["metrics"][0]["result"]["dataset_drift"]
     print(f"Dataset Drift Detected: {dataset_drift}")
 
     return dataset_drift
