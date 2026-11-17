@@ -1,21 +1,27 @@
 # 🌸 Iris ML Pipeline — End-to-End MLOps with MLflow, FastAPI & Evidently AI
 
-A production-grade ML pipeline that trains a Random Forest classifier on the Iris dataset, tracks experiments and registers versions using **MLflow**, serves predictions via a **FastAPI** REST API (containerized with **Docker**), and implements **Phase 2: Continuous Training & Data Drift Monitoring** using **Evidently AI**.
+A complete production-grade MLOps pipeline implementing continuous training, automated data drift monitoring with **Evidently AI**, model tracking and registry with **MLflow**, serving via a **FastAPI** REST API, automated unit testing with **pytest**, containerization with **Docker** (pushed to **Docker Hub**), and CI/CD automation with **GitHub Actions**.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-├── mlruns/                  # MLflow tracking data directory
+├── .github/
+│   └── workflows/
+│       └── deploy.yml        # CI/CD GitHub Actions workflow
+├── mlruns/                   # MLflow tracking directory
 ├── src/
-│   ├── monitor_drift.py     # Evidently AI data drift detection script
-│   └── retrain_pipeline.py  # Automated retraining trigger on drift
-├── app.py                   # FastAPI prediction server
-├── train.py                 # Initial model training & MLflow logging
-├── Dockerfile               # Container build configuration
-├── requirements.txt         # Project dependencies manifest
-├── drift_report.html        # Generated visual drift dashboard
+│   ├── monitor_drift.py      # Evidently AI data drift detection
+│   └── retrain_pipeline.py   # Continuous retraining & registry trigger
+├── tests/
+│   ├── test_app.py           # FastAPI endpoint tests (health, predict)
+│   └── test_retrain.py       # Drift check & retraining execution tests
+├── app.py                    # FastAPI serving layer (dynamic registry load)
+├── train.py                  # Baseline training & MLflow logging
+├── Dockerfile                # Docker container definition
+├── requirements.txt          # Python dependencies
+├── drift_report.html         # Generated Evidently visual dashboard
 └── README.md
 ```
 
@@ -25,39 +31,48 @@ A production-grade ML pipeline that trains a Random Forest classifier on the Iri
 
 Activate your virtual environment and install dependencies:
 
-```bash
+```powershell
 pip install -r requirements.txt
 ```
 
 ---
 
-## 🚀 Quick Start
+## 🧪 Running Unit & Integration Tests
 
-### Step 1 — Initial Model Training & Registry
+Run the full test suite with `pytest`:
 
-```bash
-python train.py
+```powershell
+pytest tests/
 ```
 
-This will:
-- Train a `RandomForestClassifier` on the Iris dataset.
-- Log parameters and evaluation metrics to MLflow.
-- Register the model under **`IrisRandomForest`** in the MLflow Model Registry.
+Test coverage includes:
+- **`test_app.py`**: Validates `/health` check status and model availability, `/predict` valid inputs, and Pydantic schema rejection (`422 Unprocessable Entity`).
+- **`test_retrain.py`**: Validates drift detection boolean interface, automated retraining logging to MLflow, and accuracy quality gate ($\ge 0.90$).
 
 ---
 
-### Step 2 — Phase 2: Data Drift Monitoring & Automated Retraining
+## 🚀 Step-by-Step Workflow
 
-Run the automated drift-detection and retraining pipeline:
+### Step 1 — Baseline Model Training & Registry
 
-```bash
+```powershell
+python train.py
+```
+Trains a `RandomForestClassifier` baseline on the Iris dataset and registers the model in the MLflow Model Registry.
+
+---
+
+### Step 2 — Continuous Retraining on Data Drift (Phase 3)
+
+```powershell
 python src/retrain_pipeline.py
 ```
 
-What this does:
-1. **Drift Detection (`src/monitor_drift.py`):** Uses Evidently AI to compare reference training data against current production samples.
-2. **Visual Dashboard:** Generates `drift_report.html` in the root folder.
-3. **Automated Retraining:** If data drift is detected, it automatically retrains the model with updated parameters, logs the new experiment run, and registers the new version in the MLflow Model Registry.
+* **Workflow:**
+  1. Checks production data against reference baseline for drift using Evidently AI.
+  2. Generates visual dashboard: `drift_report.html`.
+  3. If drift is detected, triggers automated retraining with candidate hyperparameters.
+  4. Applies quality gate ($\ge 90\%$ accuracy) before registering the new candidate model under **`IrisRandomForestModel`**.
 
 To view the generated visual drift report in your browser:
 
@@ -71,69 +86,75 @@ open drift_report.html
 
 ---
 
-### Step 3 — Launch the MLflow UI *(Optional)*
+### Step 3 — Inspect MLflow Dashboard
 
-```bash
-mlflow ui
+```powershell
+mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
-
-Open [http://127.0.0.1:5000](http://127.0.0.1:5000) to view runs, parameters, metrics, and registered model versions.
+Open **[http://127.0.0.1:5000](http://127.0.0.1:5000)** to view experiment runs, metrics, and registered model versions.
 
 ---
 
-### Step 4 — Run the Inference Server
+### Step 4 — Run Local Serving API
 
-**Option A — Run locally with Uvicorn:**
-```bash
+Start the FastAPI application:
+
+```powershell
 uvicorn app:app --reload --port 8000
 ```
 
-**Option B — Run with Docker:**
-```bash
-# Build Docker image
-docker build -t iris-api .
+#### Test Endpoints:
 
-# Run Docker container
-docker run -d --name iris-api -p 8000:8000 iris-api
+* **Health Check (`GET /health`):**
+  ```powershell
+  Invoke-RestMethod -Uri "http://127.0.0.1:8000/health"
+  ```
+  *Response:* `{"status": "healthy", "model_loaded": true}`
 
-# Check container logs
-docker logs iris-api
-```
+* **Inference (`POST /predict`):**
+  ```powershell
+  Invoke-RestMethod -Uri "http://127.0.0.1:8000/predict" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body '{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}'
+  ```
+  *Response:* `{"prediction": 0}`
 
-The API will be live at [http://localhost:8000](http://localhost:8000).
+Interactive Swagger documentation: **[http://localhost:8000/docs](http://localhost:8000/docs)**.
 
 ---
 
-### Step 5 — Send Prediction Requests
+## 🐳 Docker Deployment & Docker Hub
 
-**PowerShell:**
+The containerized image is hosted on Docker Hub: **`denitjoseph/iris-mlops-api`**
+
+### Pull and Run from Docker Hub:
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:8000/predict" `
+# Pull latest image
+docker pull denitjoseph/iris-mlops-api:latest
+
+# Run container
+docker run -d -p 8000:8000 --name iris-api denitjoseph/iris-mlops-api:latest
+
+# Send test prediction
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/predict" `
   -Method POST `
   -ContentType "application/json" `
   -Body '{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}'
-```
 
-**cURL:**
-```bash
-curl -X POST "http://localhost:8000/predict" \
-     -H "Content-Type: application/json" \
-     -d '{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}'
+# Stop and remove container
+docker stop iris-api; docker rm iris-api
 ```
-
-**Expected Response:**
-```json
-{"class_id": 0}
-```
-
-Interactive Swagger documentation is available at [http://localhost:8000/docs](http://localhost:8000/docs).
 
 ---
 
-## 🛠️ Troubleshooting
+## 🔄 CI/CD Automation (GitHub Actions)
 
-| Issue | Resolution |
-|---|---|
-| `ImportError: cannot import name 'infer_dtype_from_object'` | Version clash between Pandas 2.2+/3.x and older Evidently. Fixed via compatibility layer in `src/monitor_drift.py`. |
-| Port 8000 already bound (`WinError 10013`) | Run `netstat -ano \| findstr :8000` to find the PID, then `taskkill /PID <PID> /F`. |
-| Docker registry not found | Ensure `mlflow.db` is present and copied during build, or load directly from `mlruns/` artifact folder. |
+Defined in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
+- **Triggers:** Push to `master` and manual dispatch (`workflow_dispatch`).
+- **Pipeline:**
+  1. Checks out repository code.
+  2. Sets up Python 3.10 and installs dependencies.
+  3. Executes test suite (`pytest tests/`).
+  4. Builds Docker image.
+  5. *(Optional)* SSH deployment step to remote Linux VM.
