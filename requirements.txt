@@ -3,6 +3,7 @@
 # API server
 fastapi
 uvicorn
+httpx
 
 # ML model & tracking
 scikit-learn
@@ -12,6 +13,10 @@ mlflow
 pandas
 pydantic
 
-# Drift monitoring (Phase 2)
+# Drift monitoring (Phase 2 & 3)
 evidently
 requests
+scipy
+
+# Testing
+pytest

@@ -20,9 +20,11 @@ def check_data_drift():
     iris = load_iris(as_frame=True)
     reference = iris.frame.sample(n=100, random_state=42)
 
-    # 2. Simulate current production data with shifted distributions
+    # 2. Simulate current production data with shifted distributions (artificial drift)
     current = iris.frame.sample(n=100, random_state=99)
-    current['sepal length (cm)'] = current['sepal length (cm)'] * 1.5  # Artificial drift
+    current['sepal length (cm)'] = current['sepal length (cm)'] * 1.5
+    current['petal length (cm)'] = current['petal length (cm)'] * 2.0
+    current['petal width (cm)'] = current['petal width (cm)'] * 2.0
 
     # 3. Generate Evidently Data Drift Report
     drift_report = Report(metrics=[DataDriftPreset()])
